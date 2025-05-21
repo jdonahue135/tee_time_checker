@@ -2,7 +2,7 @@ name: Check Tee Times
 
 on:
   schedule:
-    - cron: '*/10 * * * *' # Every  minutes
+    - cron: '*/10 * * * *' # Every 10 minutes
   workflow_dispatch: # Allows manual trigger from GitHub UI
 
 env:
@@ -27,7 +27,6 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      # Restore the cached last_sent.txt if available
       - name: Restore last sent timestamp from cache
         uses: actions/cache@v3
         with:
@@ -36,11 +35,38 @@ jobs:
           restore-keys: |
             last-sent-
 
+      - name: Capture timestamp before run
+        id: before
+        run: |
+          if [ -f last_sent.txt ]; then
+            cat last_sent.txt
+          else
+            echo "0"  # Default value for first run or if the file is empty
+          fi > before_timestamp.txt
+
       - name: Run tee time checker
         run: python fore_up_checker.py
 
-      # Save last_sent.txt to cache for future runs
+      - name: Check if tee times were found
+        id: check_tee_times
+        run: |
+          if [ -f last_sent.txt ]; then
+            BEFORE=$(cat before_timestamp.txt)
+            AFTER=$(cat last_sent.txt)
+            echo "Before: $BEFORE"
+            echo "After: $AFTER"
+
+            if [ -n "$AFTER" ] && (( $(echo "$AFTER > $BEFORE" | bc -l) )); then
+              echo "tee_times_found=true" >> $GITHUB_ENV
+            else
+              echo "tee_times_found=false" >> $GITHUB_ENV
+            fi
+          else
+            echo "tee_times_found=false" >> $GITHUB_ENV
+          fi
+
       - name: Save last sent timestamp to cache
+        if: ${{ env.tee_times_found == 'true' }}
         uses: actions/cache/save@v3
         with:
           path: last_sent.txt
