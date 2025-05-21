@@ -27,7 +27,7 @@ TIME = TIME_OF_DAY.MORNING
 COOLDOWN_PERIOD = 3600 * 3
 
 # Path to the timestamp file
-TIMESTAMP_FILE = '/Users/jakedonahue/tee_time_checker/last_sent.txt'
+TIMESTAMP_FILE = 'last_sent.txt'
 
 def should_send_email():
     """Returns True if enough time has passed since the last email was sent."""
@@ -35,14 +35,17 @@ def should_send_email():
         with open(TIMESTAMP_FILE, 'r') as file:
             content = file.read().strip()
             if not content:
-                return True  # Treat empty file as if no email was ever sent
+                return True
             try:
                 last_sent = float(content)
             except ValueError:
-                return True  # Invalid content—assume no email sent
+                return True
         current_time = time.time()
-        return (current_time - last_sent > COOLDOWN_PERIOD)
-    return True  # If the file doesn't exist, assume we can send the first email
+        cooldown_remaining = COOLDOWN_PERIOD - (current_time - last_sent)
+        if cooldown_remaining > 0:
+            print(f"⏳ Cooldown active. Next email in {cooldown_remaining // 60:.0f} min.")
+            return False
+    return True
 
 def update_timestamp():
     """Update the timestamp file with the current time."""
