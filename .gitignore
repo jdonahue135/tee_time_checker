@@ -1,0 +1,5 @@
+# Ignore environment variable files
+.env
+launchd_stderr.log
+launchd_stdout.log
+last_sent.txt
