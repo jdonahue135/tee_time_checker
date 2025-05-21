@@ -16,7 +16,7 @@ load_dotenv()
 SENDER_EMAIL = os.getenv("EMAIL_SENDER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 TO_EMAILS = os.getenv("EMAIL_RECEIVERS", "")
-DATE = "05-18-2025"
+DATE = os.getenv("TARGET_DATE", "")
 
 class TIME_OF_DAY(Enum):
     MORNING = "morning"
