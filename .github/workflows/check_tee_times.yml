@@ -27,5 +27,21 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
+      # Restore the cached last_sent.txt if available
+      - name: Restore last sent timestamp from cache
+        uses: actions/cache@v3
+        with:
+          path: last_sent.txt
+          key: last-sent-${{ github.run_id }}
+          restore-keys: |
+            last-sent-
+
       - name: Run tee time checker
         run: python fore_up_checker.py
+
+      # Save last_sent.txt to cache for future runs
+      - name: Save last sent timestamp to cache
+        uses: actions/cache/save@v3
+        with:
+          path: last_sent.txt
+          key: last-sent-${{ github.run_id }}
