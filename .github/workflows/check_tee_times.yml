@@ -2,7 +2,7 @@ name: Check Tee Times
 
 on:
   schedule:
-    - cron: '*/10 * * * *' # Every 10 minutes
+    - cron: '*/10 * * * *' # Every  minutes
   workflow_dispatch: # Allows manual trigger from GitHub UI
 
 env:
