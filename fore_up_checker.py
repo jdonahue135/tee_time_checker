@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from enum import Enum
 import time
 import requests
 import smtplib
@@ -16,18 +15,21 @@ load_dotenv()
 SENDER_EMAIL = os.getenv("EMAIL_SENDER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 TO_EMAILS = os.getenv("EMAIL_RECEIVERS", "")
+
+# Booking configuration
 DATE = os.getenv("TARGET_DATE", "")
+TIME = os.getenv("TIME_OF_DAY", "all")
+PLAYERS = int(os.getenv("PLAYERS", "2"))
+BOOKING_CLASS = os.getenv("BOOKING_CLASS", "XXXXX")
+SCHEDULE_ID = os.getenv("SCHEDULE_ID", "XXXX")
+SCHEDULE_IDS = os.getenv("SCHEDULE_IDS", "XXXX,XXXX").split(",")
 
-class TIME_OF_DAY(Enum):
-    MORNING = "morning"
-    ALL = "all"
-
-TIME = TIME_OF_DAY.MORNING
-# Cooldown time in seconds (e.g., 60 minutes = 3600 seconds)
-COOLDOWN_PERIOD = 3600 * 3
+# Cooldown time in seconds
+COOLDOWN_PERIOD = 3600 * int(os.getenv("COOLDOWN_HOURS", "3"))
 
 # Path to the timestamp file
 TIMESTAMP_FILE = 'last_sent.txt'
+
 
 def should_send_email():
     """Returns True if enough time has passed since the last email was sent."""
@@ -40,23 +42,25 @@ def should_send_email():
                 last_sent = float(content)
             except ValueError:
                 return True
-        current_time = time.time()
-        cooldown_remaining = COOLDOWN_PERIOD - (current_time - last_sent)
-        if cooldown_remaining > 0:
-            print(f"⏳ Cooldown active. Next email in {cooldown_remaining // 60:.0f} min.")
-            return False
+            current_time = time.time()
+            cooldown_remaining = COOLDOWN_PERIOD - (current_time - last_sent)
+            if cooldown_remaining > 0:
+                print(f"⏳ Cooldown active. Next email in {cooldown_remaining // 60:.0f} min.")
+                return False
     return True
+
 
 def update_timestamp():
     """Update the timestamp file with the current time."""
     with open(TIMESTAMP_FILE, 'w') as file:
         file.write(str(time.time()))
 
-# Function to send email/SMS
+
 def send_notification(tee_times):
     if not should_send_email():
         print("⏳ Cooldown period active. Not sending email yet.")
         return
+
     msg = MIMEMultipart()
     msg['From'] = SENDER_EMAIL
     msg['To'] = TO_EMAILS
@@ -65,8 +69,8 @@ def send_notification(tee_times):
     body = "Tee times just opened up!\n\n"
     for t in tee_times:
         body += f"Available Spots: {t.get('available_spots')}, Time: {t.get('time')}, Holes: {t.get('holes')}, Course: {t.get('course_name')}\n"
-    
-    body += "\nBook here: https://app.foreupsoftware.com/index.php/booking/XXXXX/XXXX#/teetimes"
+    body += f"\nBook here: https://foreupsoftware.com/index.php/booking/XXXXX/{SCHEDULE_ID}#/teetimes"
+
     update_timestamp()
     msg.attach(MIMEText(body, 'plain'))
 
@@ -78,54 +82,41 @@ def send_notification(tee_times):
     except Exception as e:
         print("❌ Failed to send notification:", e)
 
-# Tee time checking logic
+
 def check_tee_times():
-    url = "https://app.foreupsoftware.com/index.php/api/booking/times"
+    url = "https://foreupsoftware.com/index.php/api/booking/times"
+
     params = {
         "time": TIME,
         "date": DATE,
         "holes": "all",
-        "players": 2,
-        "booking_class": "XXXXX",
-        "schedule_id": "XXXX",
-        "schedule_ids[]": ["XXXX", "XXXX"],
+        "players": PLAYERS,
+        "booking_class": BOOKING_CLASS,
+        "schedule_id": SCHEDULE_ID,
+        "schedule_ids[]": SCHEDULE_IDS,
         "specials_only": 0,
-        "api_key": "no_limits"
+        "api_key": "",
     }
 
     headers = {
         "accept": "application/json, text/javascript, */*; q=0.01",
         "accept-language": "en-US,en;q=0.9,pt;q=0.8",
-        "api-key": "no_limits",
+        "api-key": "",
         "priority": "u=1, i",
-        "referer": "https://app.foreupsoftware.com/index.php/booking/XXXXX/XXXX",
-        "sec-ch-ua": '"Google Chrome";v="135", "Not-A.Brand";v="8", "Chromium";v="135"',
+        "referer": f"https://foreupsoftware.com/index.php/booking/XXXXX/{SCHEDULE_ID}",
+        "sec-ch-ua": '"Google Chrome";v="147", "Not.A/Brand";v="8", "Chromium";v="147"',
         "sec-ch-ua-mobile": "?0",
         "sec-ch-ua-platform": '"macOS"',
         "sec-fetch-dest": "empty",
         "sec-fetch-mode": "cors",
         "sec-fetch-site": "same-origin",
-        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
         "x-fu-golfer-location": "foreup",
-        "x-requested-with": "XMLHttpRequest"
-    }
-
-    cookies = {
-        "PHPSESSID": "ok92h697p3s1ht8k9jpckauaq5",
-        "_ga_Y0N3BHPPWG": "GS2.1.s1747152348$o2$g0$t1747152348$j0$l0$h0",
-        "_ga": "GA1.2.826621824.1744642715",
-        "_gid": "GA1.2.1840340421.1747152349",
-        "__stripe_mid": "2900bead-b40a-477c-af03-67f1256f3cb071697f",
-        "__stripe_sid": "2cb39532-b2d7-49be-84fd-ed06a58a2ec39f30ab"
+        "x-requested-with": "XMLHttpRequest",
     }
 
     try:
-        response = requests.get(
-            url,
-            headers=headers,
-            params=params,
-            # cookies=cookies
-        )
+        response = requests.get(url, headers=headers, params=params)
         print(f"Checked at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
         if response.ok:
@@ -140,9 +131,10 @@ def check_tee_times():
     except Exception as e:
         print("Error checking tee times:", e)
 
-# Call the function once (for testing)
+
 def main():
     check_tee_times()
+
 
 if __name__ == "__main__":
     main()
