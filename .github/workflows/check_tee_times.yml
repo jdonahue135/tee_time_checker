@@ -9,6 +9,13 @@ env:
   EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
   EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
   EMAIL_RECEIVERS: ${{ secrets.EMAIL_RECEIVERS }}
+  TARGET_DATE: ${{ vars.TARGET_DATE }}
+  TIME_OF_DAY: ${{ vars.TIME_OF_DAY }}
+  PLAYERS: ${{ vars.PLAYERS }}
+  BOOKING_CLASS: ${{ vars.BOOKING_CLASS }}
+  SCHEDULE_ID: ${{ vars.SCHEDULE_ID }}
+  SCHEDULE_IDS: ${{ vars.SCHEDULE_IDS }}
+  COOLDOWN_HOURS: ${{ vars.COOLDOWN_HOURS }}
 
 jobs:
   run-script:
