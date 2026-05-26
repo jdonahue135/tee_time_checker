@@ -241,6 +241,9 @@
 
       // Load current values from GH if PAT is set
       if (getPAT()) await loadCurrentValues();
+      // Load cron job state if credentials are saved
+      if (cronKey && cronJobId) await loadCronJob();
+      else document.getElementById('cron-enabled-label').textContent = 'Unknown';
     }
 
     async function loadCurrentValues() {
