@@ -269,7 +269,7 @@
         for (const p of (enumsData?.PLAYERS || [])) {
           const opt = document.createElement('option');
           opt.value = p;
-          opt.textContent = p === '0' ? '0 (any)' : p;
+          opt.textContent = p === '0' ? 'Any' : p;
           if (p === String(slot.players)) opt.selected = true;
           playersSelect.appendChild(opt);
         }
@@ -356,6 +356,7 @@
           time: s.time,
           players: parseInt(s.players, 10)
         }));
+        currentConfig.emailReceivers = getEmailList().filter(e => e.enabled).map(e => e.email).join(',');
         await setVar('CONFIG', JSON.stringify(currentConfig));
         showStatus('Settings saved', 'success');
       } catch (e) {
