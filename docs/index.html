@@ -31,6 +31,14 @@
     summary { cursor: pointer; font-size: 0.85rem; color: #666; }
     .advanced { padding-top: 0.75rem; }
     #pat-section { border-left: 3px solid #4a7c59; padding-left: 1rem; }
+    .toggle-row { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.75rem; }
+    .toggle { position: relative; display: inline-block; width: 44px; height: 24px; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; inset: 0; background: #ccc; border-radius: 24px; transition: .2s; }
+    .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .2s; }
+    input:checked + .slider { background: #4a7c59; }
+    input:checked + .slider:before { transform: translateX(20px); }
+    .toggle-label { font-size: 0.9rem; font-weight: 500; }
   </style>
 </head>
 <body>
@@ -42,6 +50,37 @@
     <label for="pat">Personal Access Token (repo scope)</label>
     <input type="password" id="pat" placeholder="ghp_..." autocomplete="off" />
     <p style="font-size:0.8rem;color:#888;margin-top:0.4rem;">Stored locally in your browser. Never sent anywhere except api.github.com.</p>
+  </div>
+
+  <div class="card">
+    <h2>Cron Schedule</h2>
+    <label for="cron-api-key">cron-job.org API Key</label>
+    <input type="password" id="cron-api-key" placeholder="API key from cron-job.org" autocomplete="off" />
+    <label for="cron-job-id">Job ID</label>
+    <input type="text" id="cron-job-id" placeholder="e.g. 1234567" />
+
+    <div class="toggle-row" style="margin-top:1rem;">
+      <label class="toggle">
+        <input type="checkbox" id="cron-enabled" />
+        <span class="slider"></span>
+      </label>
+      <span class="toggle-label" id="cron-enabled-label">Loading…</span>
+    </div>
+
+    <label for="cron-interval" style="margin-top:1rem;">Check Interval</label>
+    <select id="cron-interval">
+      <option value="5">Every 5 minutes</option>
+      <option value="10">Every 10 minutes</option>
+      <option value="15">Every 15 minutes</option>
+      <option value="30">Every 30 minutes</option>
+      <option value="60">Every hour</option>
+    </select>
+
+    <div class="actions">
+      <button class="btn btn-secondary" id="cron-load-btn" onclick="loadCronJob()">Load</button>
+      <button class="btn btn-primary" id="cron-save-btn" onclick="saveCronJob()">Save Schedule</button>
+      <span id="cron-status" class="status" style="display:none"></span>
+    </div>
   </div>
 
   <div class="card">
@@ -156,6 +195,10 @@
       // Restore PAT from localStorage
       const saved = localStorage.getItem('gh_pat');
       if (saved) document.getElementById('pat').value = saved;
+      const cronKey = localStorage.getItem('cron_api_key');
+      if (cronKey) document.getElementById('cron-api-key').value = cronKey;
+      const cronJobId = localStorage.getItem('cron_job_id');
+      if (cronJobId) document.getElementById('cron-job-id').value = cronJobId;
       document.getElementById('pat').addEventListener('change', () => {
         localStorage.setItem('gh_pat', document.getElementById('pat').value.trim());
       });
@@ -262,6 +305,103 @@
       }
       btn.disabled = false;
     }
+
+    function getCronKey() { return document.getElementById('cron-api-key').value.trim(); }
+    function getCronJobId() { return document.getElementById('cron-job-id').value.trim(); }
+
+    function showCronStatus(msg, type) {
+      const el = document.getElementById('cron-status');
+      el.textContent = msg;
+      el.className = 'status ' + type;
+      el.style.display = 'inline-block';
+      if (type === 'success') setTimeout(() => el.style.display = 'none', 4000);
+    }
+
+    async function cronFetch(jobId, method = 'GET', body = null) {
+      const key = getCronKey();
+      if (!key) { showCronStatus('Enter a cron-job.org API key first', 'error'); throw new Error('No key'); }
+      const opts = {
+        method,
+        headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }
+      };
+      if (body) opts.body = JSON.stringify(body);
+      return fetch(`https://api.cron-job.org/jobs/${jobId}`, opts);
+    }
+
+    function minutesForInterval(interval) {
+      const mins = [];
+      for (let i = 0; i < 60; i += interval) mins.push(i);
+      return mins;
+    }
+
+    function intervalFromMinutes(minutes) {
+      if (!minutes || minutes.length === 0 || minutes[0] === -1) return 5;
+      if (minutes.length === 1) return 60;
+      return minutes[1] - minutes[0];
+    }
+
+    async function loadCronJob() {
+      const jobId = getCronJobId();
+      if (!jobId) { showCronStatus('Enter a Job ID first', 'error'); return; }
+      const btn = document.getElementById('cron-load-btn');
+      btn.disabled = true;
+      showCronStatus('Loading…', 'info');
+      try {
+        const res = await cronFetch(jobId);
+        if (!res.ok) { showCronStatus('Failed to load: ' + res.status, 'error'); return; }
+        const data = await res.json();
+        const job = data.jobDetails || data.job || data;
+        const enabled = job.enabled !== false;
+        document.getElementById('cron-enabled').checked = enabled;
+        document.getElementById('cron-enabled-label').textContent = enabled ? 'Enabled' : 'Disabled';
+        const interval = intervalFromMinutes(job.schedule?.minutes);
+        document.getElementById('cron-interval').value = String(interval);
+        showCronStatus('Loaded', 'success');
+      } catch (e) {
+        showCronStatus('Error: ' + e.message, 'error');
+      }
+      btn.disabled = false;
+    }
+
+    async function saveCronJob() {
+      const jobId = getCronJobId();
+      if (!jobId) { showCronStatus('Enter a Job ID first', 'error'); return; }
+      const btn = document.getElementById('cron-save-btn');
+      btn.disabled = true;
+      showCronStatus('Saving…', 'info');
+      try {
+        const enabled = document.getElementById('cron-enabled').checked;
+        const interval = parseInt(document.getElementById('cron-interval').value, 10);
+        const minutes = minutesForInterval(interval);
+        const res = await cronFetch(jobId, 'PATCH', {
+          job: {
+            enabled,
+            schedule: { hours: [-1], mdays: [-1], minutes, months: [-1], wdays: [-1] }
+          }
+        });
+        if (res.ok) {
+          document.getElementById('cron-enabled-label').textContent = enabled ? 'Enabled' : 'Disabled';
+          showCronStatus('Schedule saved', 'success');
+        } else {
+          const d = await res.json().catch(() => ({}));
+          showCronStatus('Failed: ' + (d.error || d.message || res.status), 'error');
+        }
+      } catch (e) {
+        showCronStatus('Error: ' + e.message, 'error');
+      }
+      btn.disabled = false;
+    }
+
+    document.getElementById('cron-api-key').addEventListener('change', () => {
+      localStorage.setItem('cron_api_key', document.getElementById('cron-api-key').value.trim());
+    });
+    document.getElementById('cron-job-id').addEventListener('change', () => {
+      localStorage.setItem('cron_job_id', document.getElementById('cron-job-id').value.trim());
+    });
+    document.getElementById('cron-enabled').addEventListener('change', () => {
+      document.getElementById('cron-enabled-label').textContent =
+        document.getElementById('cron-enabled').checked ? 'Enabled' : 'Disabled';
+    });
 
     init();
   </script>
