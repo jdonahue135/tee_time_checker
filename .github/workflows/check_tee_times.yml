@@ -6,11 +6,7 @@ on:
 env:
   EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
   EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-  EMAIL_RECEIVERS: ${{ vars.EMAIL_RECEIVERS }}
-  SEARCH_CONFIGS: ${{ vars.SEARCH_CONFIGS }}
-  BOOKING_CLASS: ${{ vars.BOOKING_CLASS }}
-  SCHEDULE_ID: ${{ vars.SCHEDULE_ID }}
-  SCHEDULE_IDS: ${{ vars.SCHEDULE_IDS }}
+  CONFIG: ${{ vars.CONFIG }}
 jobs:
   run-script:
     runs-on: ubuntu-latest

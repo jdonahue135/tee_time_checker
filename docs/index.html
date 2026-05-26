@@ -162,6 +162,7 @@
 
     let slots = [];
     let enumsData = null;
+    let currentConfig = { bookingClass: '', scheduleId: '', scheduleIds: '', emailReceivers: '', slots: [] };
 
     function getPAT() { return document.getElementById('pat').value.trim(); }
 
@@ -323,20 +324,18 @@
     async function loadCurrentValues() {
       showStatus('Loading current settings…', 'info');
       try {
-        const [searchConfigs, bookingClass, scheduleId, scheduleIds, emailReceivers] = await Promise.all(
-          ['SEARCH_CONFIGS', 'BOOKING_CLASS', 'SCHEDULE_ID', 'SCHEDULE_IDS', 'EMAIL_RECEIVERS'].map(getVar)
-        );
-        if (searchConfigs) {
-          try {
-            const parsed = JSON.parse(searchConfigs);
-            slots = parsed.map(s => ({ day: s.day, time: s.time, players: String(s.players) }));
-            renderSlots();
-          } catch {}
+        const raw = await getVar('CONFIG');
+        if (raw) {
+          try { currentConfig = { ...currentConfig, ...JSON.parse(raw) }; } catch {}
         }
-        if (bookingClass) document.getElementById('booking-class').value = bookingClass;
-        if (scheduleId) document.getElementById('course').value = scheduleId;
-        if (scheduleIds) document.getElementById('schedule-ids').value = scheduleIds;
-        if (emailReceivers) loadEmailTags(emailReceivers);
+        if (currentConfig.bookingClass) document.getElementById('booking-class').value = currentConfig.bookingClass;
+        if (currentConfig.scheduleId) document.getElementById('course').value = currentConfig.scheduleId;
+        if (currentConfig.scheduleIds) document.getElementById('schedule-ids').value = currentConfig.scheduleIds;
+        if (currentConfig.slots?.length) {
+          slots = currentConfig.slots.map(s => ({ day: s.day, time: s.time, players: String(s.players) }));
+          renderSlots();
+        }
+        if (currentConfig.emailReceivers) loadEmailTags(currentConfig.emailReceivers);
         document.getElementById('status').style.display = 'none';
       } catch (e) {
         showStatus('Failed to load settings', 'error');
@@ -348,24 +347,16 @@
       btn.disabled = true;
       showStatus('Saving…', 'info');
       try {
-        const courseId = document.getElementById('course').value;
-        const bookingClass = document.getElementById('booking-class').value;
-        const scheduleIds = document.getElementById('schedule-ids').value;
-
-        const searchConfigs = slots.map(s => ({
+        currentConfig.scheduleId = document.getElementById('course').value;
+        currentConfig.bookingClass = document.getElementById('booking-class').value;
+        currentConfig.scheduleIds = document.getElementById('schedule-ids').value;
+        currentConfig.slots = slots.map(s => ({
           id: slotId(s),
           day: s.day,
           time: s.time,
           players: parseInt(s.players, 10)
         }));
-
-        await Promise.all([
-          setVar('SEARCH_CONFIGS', JSON.stringify(searchConfigs)),
-          setVar('SCHEDULE_ID', courseId),
-          bookingClass && setVar('BOOKING_CLASS', bookingClass),
-          scheduleIds && setVar('SCHEDULE_IDS', scheduleIds),
-        ].filter(Boolean));
-
+        await setVar('CONFIG', JSON.stringify(currentConfig));
         showStatus('Settings saved', 'success');
       } catch (e) {
         showStatus('Save failed: ' + e.message, 'error');
@@ -453,8 +444,8 @@
       btn.disabled = true;
       showRecipientsStatus('Saving…', 'info');
       try {
-        const enabled = getEmailList().filter(e => e.enabled).map(e => e.email).join(',');
-        await setVar('EMAIL_RECEIVERS', enabled);
+        currentConfig.emailReceivers = getEmailList().filter(e => e.enabled).map(e => e.email).join(',');
+        await setVar('CONFIG', JSON.stringify(currentConfig));
         showRecipientsStatus('Saved', 'success');
       } catch (e) {
         showRecipientsStatus('Save failed: ' + e.message, 'error');
