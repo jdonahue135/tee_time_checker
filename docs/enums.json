@@ -1,0 +1,7 @@
+{
+  "TIME_OF_DAY": ["all", "morning", "midday", "evening"],
+  "PLAYERS": ["0", "1", "2", "3", "4"],
+  "COURSES": {
+    "XXXX": "Course A"
+  }
+}
