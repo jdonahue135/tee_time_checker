@@ -6,7 +6,7 @@ on:
 env:
   EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
   EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-  EMAIL_RECEIVERS: ${{ secrets.EMAIL_RECEIVERS }}
+  EMAIL_RECEIVERS: ${{ vars.EMAIL_RECEIVERS }}
   TARGET_DATE: ${{ vars.TARGET_DATE }}
   TIME_OF_DAY: ${{ vars.TIME_OF_DAY }}
   PLAYERS: ${{ vars.PLAYERS }}
