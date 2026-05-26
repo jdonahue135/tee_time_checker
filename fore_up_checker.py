@@ -61,6 +61,14 @@ def save_seen_keys(keys, slot_id):
         json.dump(list(keys), f)
 
 
+def fmt_time(raw):
+    for fmt in ('%H:%M:%S', '%H:%M'):
+        try:
+            return datetime.strptime(raw, fmt).strftime('%-I:%M %p')
+        except (ValueError, TypeError):
+            pass
+    return raw
+
 def send_notification(new_tee_times, label):
     msg = MIMEMultipart()
     msg['From'] = SENDER_EMAIL
@@ -69,7 +77,7 @@ def send_notification(new_tee_times, label):
 
     body = "New tee times just opened up!\n\n"
     for t in new_tee_times:
-        body += f"Available Spots: {t.get('available_spots')}, Time: {t.get('time')}, Holes: {t.get('holes')}, Course: {t.get('course_name')}\n"
+        body += f"Available Spots: {t.get('available_spots')}, Time: {fmt_time(t.get('time'))}, Holes: {t.get('holes')}, Course: {t.get('course_name')}\n"
     body += f"\nBook here: https://foreupsoftware.com/index.php/booking/21120/{SCHEDULE_ID}#/teetimes"
 
     msg.attach(MIMEText(body, 'plain'))
