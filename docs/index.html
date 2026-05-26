@@ -45,15 +45,36 @@
   <h1>⛳ Tee Time Checker</h1>
   <p class="subtitle">Configure and trigger tee time alerts</p>
 
-  <div class="card" id="pat-section">
+  <div class="card">
+    <h2>Search Settings</h2>
+
+    <label for="course">Course</label>
+    <select id="course"></select>
+
+    <label for="target-date">Date</label>
+    <input type="date" id="target-date" />
+
+    <label for="time-of-day">Time of Day</label>
+    <select id="time-of-day"></select>
+
+    <label for="players">Players</label>
+    <select id="players"></select>
+
     <details>
-      <summary>GitHub Access</summary>
+      <summary>Advanced</summary>
       <div class="advanced">
-        <label for="pat">Personal Access Token (repo scope)</label>
-        <input type="password" id="pat" placeholder="ghp_..." autocomplete="off" />
-        <p style="font-size:0.8rem;color:#888;margin-top:0.4rem;">Stored locally in your browser. Never sent anywhere except api.github.com.</p>
+        <label for="booking-class">Booking Class ID</label>
+        <input type="text" id="booking-class" />
+        <label for="schedule-ids">Schedule IDs (comma-separated)</label>
+        <input type="text" id="schedule-ids" />
       </div>
     </details>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="save-btn" onclick="saveAll()">Save Settings</button>
+      <button class="btn btn-secondary" id="run-btn" onclick="runWorkflow()">Run Check Now</button>
+      <span id="status" class="status" style="display:none"></span>
+    </div>
   </div>
 
   <div class="card">
@@ -66,6 +87,8 @@
       </label>
       <span class="toggle-label" id="cron-enabled-label">Loading…</span>
     </div>
+
+    <div id="cron-last-run" style="display:none;margin-top:0.75rem;font-size:0.82rem;color:#555;display:grid;grid-template-columns:auto 1fr;gap:0.2rem 0.75rem;"></div>
 
     <label for="cron-interval" style="margin-top:1rem;">Check Interval</label>
     <select id="cron-interval">
@@ -93,36 +116,15 @@
     </div>
   </div>
 
-  <div class="card">
-    <h2>Search Settings</h2>
-
-    <label for="course">Course</label>
-    <select id="course"></select>
-
-    <label for="target-date">Date</label>
-    <input type="date" id="target-date" />
-
-    <label for="time-of-day">Time of Day</label>
-    <select id="time-of-day"></select>
-
-    <label for="players">Players</label>
-    <select id="players"></select>
-
-<details>
-      <summary>Advanced</summary>
+  <div class="card" id="pat-section">
+    <details>
+      <summary>GitHub Access</summary>
       <div class="advanced">
-        <label for="booking-class">Booking Class ID</label>
-        <input type="text" id="booking-class" />
-        <label for="schedule-ids">Schedule IDs (comma-separated)</label>
-        <input type="text" id="schedule-ids" />
+        <label for="pat">Personal Access Token (repo scope)</label>
+        <input type="password" id="pat" placeholder="ghp_..." autocomplete="off" />
+        <p style="font-size:0.8rem;color:#888;margin-top:0.4rem;">Stored locally in your browser. Never sent anywhere except api.github.com.</p>
       </div>
     </details>
-
-    <div class="actions">
-      <button class="btn btn-primary" id="save-btn" onclick="saveAll()">Save Settings</button>
-      <button class="btn btn-secondary" id="run-btn" onclick="runWorkflow()">Run Check Now</button>
-      <span id="status" class="status" style="display:none"></span>
-    </div>
   </div>
 
   <script>
@@ -363,6 +365,18 @@
         document.getElementById('cron-enabled-label').textContent = enabled ? 'Enabled' : 'Disabled';
         const interval = intervalFromMinutes(job.schedule?.minutes);
         document.getElementById('cron-interval').value = String(interval);
+
+        const lastRunEl = document.getElementById('cron-last-run');
+        if (job.lastExecution) {
+          const statusMap = { 1: '✅ OK', 0: '❌ Failed', 2: '⚠️ Error' };
+          const fmt = ts => new Date(ts * 1000).toLocaleString();
+          const dur = job.lastDuration ? `${(job.lastDuration / 1000).toFixed(1)}s` : '—';
+          lastRunEl.innerHTML = `
+            <span style="color:#888">Last run</span><span>${fmt(job.lastExecution)} — ${statusMap[job.lastStatus] ?? job.lastStatus} (${dur})</span>
+            <span style="color:#888">Next run</span><span>${job.nextExecution ? fmt(job.nextExecution) : '—'}</span>
+          `;
+          lastRunEl.style.display = 'grid';
+        }
         showCronStatus('Loaded', 'success');
       } catch (e) {
         showCronStatus('Error: ' + e.message, 'error');
