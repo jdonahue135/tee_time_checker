@@ -347,12 +347,14 @@
     }
 
     function loadEmailTags(csvValue) {
-      const fromGh = csvValue.split(',').map(e => e.trim()).filter(Boolean);
+      const fromGh = new Set(csvValue.split(',').map(e => e.trim()).filter(Boolean));
       const stored = getEmailList();
-      const storedEmails = stored.map(e => e.email);
-      // Merge: add any from GH not already in local list as enabled
+      // Emails in GH are subscribed — mark them enabled
+      // Emails only in localStorage keep their local state (disabled = temporarily removed)
       fromGh.forEach(email => {
-        if (!storedEmails.includes(email)) stored.push({ email, enabled: true });
+        const existing = stored.find(e => e.email === email);
+        if (existing) existing.enabled = true;
+        else stored.push({ email, enabled: true });
       });
       saveEmailList(stored);
       renderEmailTags();
