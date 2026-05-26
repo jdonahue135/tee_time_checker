@@ -11,17 +11,19 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Email configuration
 SENDER_EMAIL = os.getenv("EMAIL_SENDER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
-TO_EMAILS = os.getenv("EMAIL_RECEIVERS", "")
 
-# Global booking configuration
-BOOKING_CLASS = os.getenv("BOOKING_CLASS", "XXXXX")
-SCHEDULE_ID = os.getenv("SCHEDULE_ID", "XXXX")
-SCHEDULE_IDS = os.getenv("SCHEDULE_IDS", "XXXX,XXXX").split(",")
+try:
+    _config = json.loads(os.getenv("CONFIG", "{}"))
+except (ValueError, TypeError):
+    _config = {}
 
-SEARCH_CONFIGS = os.getenv("SEARCH_CONFIGS", "[]")
+TO_EMAILS = _config.get("emailReceivers", "")
+BOOKING_CLASS = _config.get("bookingClass", "XXXXX")
+SCHEDULE_ID = _config.get("scheduleId", "XXXX")
+SCHEDULE_IDS = _config.get("scheduleIds", "XXXX,XXXX").split(",")
+SLOTS = _config.get("slots", [])
 
 DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
@@ -147,17 +149,11 @@ def check_slot(slot):
 
 
 def main():
-    try:
-        configs = json.loads(SEARCH_CONFIGS)
-    except (ValueError, TypeError):
-        print("❌ Invalid SEARCH_CONFIGS JSON.")
-        return
-
-    if not configs:
+    if not SLOTS:
         print("No search slots configured.")
         return
 
-    for slot in configs:
+    for slot in SLOTS:
         check_slot(slot)
 
 
