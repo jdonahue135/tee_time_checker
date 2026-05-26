@@ -54,12 +54,8 @@
 
   <div class="card">
     <h2>Cron Schedule</h2>
-    <label for="cron-api-key">cron-job.org API Key</label>
-    <input type="password" id="cron-api-key" placeholder="API key from cron-job.org" autocomplete="off" />
-    <label for="cron-job-id">Job ID</label>
-    <input type="text" id="cron-job-id" placeholder="e.g. 1234567" />
 
-    <div class="toggle-row" style="margin-top:1rem;">
+    <div class="toggle-row" style="margin-top:0;">
       <label class="toggle">
         <input type="checkbox" id="cron-enabled" />
         <span class="slider"></span>
@@ -75,6 +71,16 @@
       <option value="30">Every 30 minutes</option>
       <option value="60">Every hour</option>
     </select>
+
+    <details>
+      <summary>Advanced</summary>
+      <div class="advanced">
+        <label for="cron-api-key">cron-job.org API Key</label>
+        <input type="password" id="cron-api-key" placeholder="API key from cron-job.org" autocomplete="off" />
+        <label for="cron-job-id">Job ID</label>
+        <input type="text" id="cron-job-id" placeholder="e.g. 1234567" />
+      </div>
+    </details>
 
     <div class="actions">
       <button class="btn btn-secondary" id="cron-load-btn" onclick="loadCronJob()">Load</button>
