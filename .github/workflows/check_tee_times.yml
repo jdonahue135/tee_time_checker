@@ -13,8 +13,6 @@ env:
   BOOKING_CLASS: ${{ vars.BOOKING_CLASS }}
   SCHEDULE_ID: ${{ vars.SCHEDULE_ID }}
   SCHEDULE_IDS: ${{ vars.SCHEDULE_IDS }}
-  COOLDOWN_HOURS: ${{ vars.COOLDOWN_HOURS }}
-
 jobs:
   run-script:
     runs-on: ubuntu-latest
@@ -32,7 +30,7 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Restore last sent timestamp from cache
+      - name: Restore seen tee times from cache
         uses: actions/cache@v3
         with:
           path: last_sent.txt
@@ -40,38 +38,10 @@ jobs:
           restore-keys: |
             last-sent-
 
-      - name: Capture timestamp before run
-        id: before
-        run: |
-          if [ -f last_sent.txt ]; then
-            cat last_sent.txt
-          else
-            echo "0"  # Default value for first run or if the file is empty
-          fi > before_timestamp.txt
-
       - name: Run tee time checker
         run: python fore_up_checker.py
 
-      - name: Check if tee times were found
-        id: check_tee_times
-        run: |
-          if [ -f last_sent.txt ]; then
-            BEFORE=$(cat before_timestamp.txt)
-            AFTER=$(cat last_sent.txt)
-            echo "Before: $BEFORE"
-            echo "After: $AFTER"
-
-            if [ -n "$AFTER" ] && (( $(echo "$AFTER > $BEFORE" | bc -l) )); then
-              echo "tee_times_found=true" >> $GITHUB_ENV
-            else
-              echo "tee_times_found=false" >> $GITHUB_ENV
-            fi
-          else
-            echo "tee_times_found=false" >> $GITHUB_ENV
-          fi
-
-      - name: Save last sent timestamp to cache
-        if: ${{ env.tee_times_found == 'true' }}
+      - name: Save seen tee times to cache
         uses: actions/cache/save@v3
         with:
           path: last_sent.txt

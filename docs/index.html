@@ -108,10 +108,7 @@
     <label for="players">Players</label>
     <select id="players"></select>
 
-    <label for="cooldown">Cooldown (hours between emails)</label>
-    <input type="number" id="cooldown" min="0" step="1" />
-
-    <details>
+<details>
       <summary>Advanced</summary>
       <div class="advanced">
         <label for="booking-class">Booking Class ID</label>
@@ -133,7 +130,7 @@
     const REPO = 'tee_time_checker';
     const WORKFLOW_FILE = 'check_tee_times.yml';
 
-    const VAR_NAMES = ['TARGET_DATE', 'TIME_OF_DAY', 'PLAYERS', 'BOOKING_CLASS', 'SCHEDULE_ID', 'SCHEDULE_IDS', 'COOLDOWN_HOURS'];
+    const VAR_NAMES = ['TARGET_DATE', 'TIME_OF_DAY', 'PLAYERS', 'BOOKING_CLASS', 'SCHEDULE_ID', 'SCHEDULE_IDS'];
 
     function getPAT() { return document.getElementById('pat').value.trim(); }
 
@@ -249,7 +246,7 @@
     async function loadCurrentValues() {
       showStatus('Loading current settings…', 'info');
       try {
-        const [date, time, players, bookingClass, scheduleId, scheduleIds, cooldown] = await Promise.all(
+        const [date, time, players, bookingClass, scheduleId, scheduleIds] = await Promise.all(
           VAR_NAMES.map(getVar)
         );
         if (date) document.getElementById('target-date').value = fromApiDate(date);
@@ -258,7 +255,6 @@
         if (bookingClass) document.getElementById('booking-class').value = bookingClass;
         if (scheduleId) document.getElementById('course').value = scheduleId;
         if (scheduleIds) document.getElementById('schedule-ids').value = scheduleIds;
-        if (cooldown) document.getElementById('cooldown').value = cooldown;
         document.getElementById('status').style.display = 'none';
       } catch (e) {
         showStatus('Failed to load settings', 'error');
@@ -276,7 +272,6 @@
         const players = document.getElementById('players').value;
         const bookingClass = document.getElementById('booking-class').value;
         const scheduleIds = document.getElementById('schedule-ids').value;
-        const cooldown = document.getElementById('cooldown').value;
 
         await Promise.all([
           dateVal && setVar('TARGET_DATE', dateVal),
@@ -285,7 +280,6 @@
           bookingClass && setVar('BOOKING_CLASS', bookingClass),
           setVar('SCHEDULE_ID', courseId),
           scheduleIds && setVar('SCHEDULE_IDS', scheduleIds),
-          cooldown && setVar('COOLDOWN_HOURS', cooldown),
         ].filter(Boolean));
 
         showStatus('Settings saved', 'success');

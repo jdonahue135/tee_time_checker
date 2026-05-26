@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import time
+import json
 import requests
 import smtplib
 import os
@@ -24,54 +24,42 @@ BOOKING_CLASS = os.getenv("BOOKING_CLASS", "XXXXX")
 SCHEDULE_ID = os.getenv("SCHEDULE_ID", "XXXX")
 SCHEDULE_IDS = os.getenv("SCHEDULE_IDS", "XXXX,XXXX").split(",")
 
-# Cooldown time in seconds
-COOLDOWN_PERIOD = 3600 * int(os.getenv("COOLDOWN_HOURS", "3"))
-
-# Path to the timestamp file
-TIMESTAMP_FILE = 'last_sent.txt'
+SEEN_FILE = 'last_sent.txt'
 
 
-def should_send_email():
-    """Returns True if enough time has passed since the last email was sent."""
-    if os.path.exists(TIMESTAMP_FILE):
-        with open(TIMESTAMP_FILE, 'r') as file:
-            content = file.read().strip()
-            if not content:
-                return True
-            try:
-                last_sent = float(content)
-            except ValueError:
-                return True
-            current_time = time.time()
-            cooldown_remaining = COOLDOWN_PERIOD - (current_time - last_sent)
-            if cooldown_remaining > 0:
-                print(f"⏳ Cooldown active. Next email in {cooldown_remaining // 60:.0f} min.")
-                return False
-    return True
+def tee_time_key(t):
+    return f"{t.get('time')}|{t.get('course_name')}|{t.get('holes')}"
 
 
-def update_timestamp():
-    """Update the timestamp file with the current time."""
-    with open(TIMESTAMP_FILE, 'w') as file:
-        file.write(str(time.time()))
+def load_seen_keys():
+    if not os.path.exists(SEEN_FILE):
+        return set()
+    with open(SEEN_FILE, 'r') as f:
+        content = f.read().strip()
+        if not content:
+            return set()
+        try:
+            return set(json.loads(content))
+        except (ValueError, TypeError):
+            return set()
 
 
-def send_notification(tee_times):
-    if not should_send_email():
-        print("⏳ Cooldown period active. Not sending email yet.")
-        return
+def save_seen_keys(keys):
+    with open(SEEN_FILE, 'w') as f:
+        json.dump(list(keys), f)
 
+
+def send_notification(new_tee_times):
     msg = MIMEMultipart()
     msg['From'] = SENDER_EMAIL
     msg['To'] = TO_EMAILS
     msg['Subject'] = "⛳️ Tee Time Alert!"
 
-    body = "Tee times just opened up!\n\n"
-    for t in tee_times:
+    body = "New tee times just opened up!\n\n"
+    for t in new_tee_times:
         body += f"Available Spots: {t.get('available_spots')}, Time: {t.get('time')}, Holes: {t.get('holes')}, Course: {t.get('course_name')}\n"
     body += f"\nBook here: https://foreupsoftware.com/index.php/booking/XXXXX/{SCHEDULE_ID}#/teetimes"
 
-    update_timestamp()
     msg.attach(MIMEText(body, 'plain'))
 
     try:
@@ -122,10 +110,17 @@ def check_tee_times():
         if response.ok:
             tee_times = response.json()
             if tee_times:
-                print(f"🎉 Found {len(tee_times)} tee times!")
-                send_notification(tee_times)
+                seen = load_seen_keys()
+                new_times = [t for t in tee_times if tee_time_key(t) not in seen]
+                if new_times:
+                    print(f"🎉 Found {len(new_times)} new tee times!")
+                    send_notification(new_times)
+                    save_seen_keys({tee_time_key(t) for t in tee_times})
+                else:
+                    print(f"Found {len(tee_times)} tee times but none are new.")
             else:
                 print("No tee times available.")
+                save_seen_keys(set())
         else:
             print(f"Request failed with status code {response.status_code}")
     except Exception as e:
