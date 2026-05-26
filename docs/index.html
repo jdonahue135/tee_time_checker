@@ -88,7 +88,7 @@
       <span class="toggle-label" id="cron-enabled-label">Loading…</span>
     </div>
 
-    <div id="cron-last-run" style="display:none;margin-top:0.75rem;font-size:0.82rem;color:#555;display:grid;grid-template-columns:auto 1fr;gap:0.2rem 0.75rem;"></div>
+    <div id="cron-last-run" style="display:none;margin-top:1rem;"></div>
 
     <label for="cron-interval" style="margin-top:1rem;">Check Interval</label>
     <select id="cron-interval">
@@ -110,7 +110,6 @@
     </details>
 
     <div class="actions">
-      <button class="btn btn-secondary" id="cron-load-btn" onclick="loadCronJob()">Load</button>
       <button class="btn btn-primary" id="cron-save-btn" onclick="saveCronJob()">Save Schedule</button>
       <span id="cron-status" class="status" style="display:none"></span>
     </div>
@@ -369,13 +368,23 @@
         const lastRunEl = document.getElementById('cron-last-run');
         if (job.lastExecution) {
           const statusMap = { 1: '✅ OK', 0: '❌ Failed', 2: '⚠️ Error' };
-          const fmt = ts => new Date(ts * 1000).toLocaleString();
+          const fmt = ts => new Date(ts * 1000).toLocaleString([], { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
           const dur = job.lastDuration ? `${(job.lastDuration / 1000).toFixed(1)}s` : '—';
+          const status = statusMap[job.lastStatus] ?? job.lastStatus;
           lastRunEl.innerHTML = `
-            <span style="color:#888">Last run</span><span>${fmt(job.lastExecution)} — ${statusMap[job.lastStatus] ?? job.lastStatus} (${dur})</span>
-            <span style="color:#888">Next run</span><span>${job.nextExecution ? fmt(job.nextExecution) : '—'}</span>
+            <div style="display:flex;gap:1.5rem;flex-wrap:wrap;">
+              <div>
+                <div style="font-size:0.75rem;color:#888;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.2rem;">Last Run</div>
+                <div style="font-size:0.95rem;">${fmt(job.lastExecution)}</div>
+                <div style="font-size:0.85rem;color:#555;margin-top:0.1rem;">${status} &middot; ${dur}</div>
+              </div>
+              <div>
+                <div style="font-size:0.75rem;color:#888;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.2rem;">Next Run</div>
+                <div style="font-size:0.95rem;">${job.nextExecution ? fmt(job.nextExecution) : '—'}</div>
+              </div>
+            </div>
           `;
-          lastRunEl.style.display = 'grid';
+          lastRunEl.style.display = 'block';
         }
         showCronStatus('Loaded', 'success');
       } catch (e) {
