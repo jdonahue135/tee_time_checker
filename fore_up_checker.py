@@ -4,7 +4,7 @@ import json
 import requests
 import smtplib
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
@@ -16,25 +16,34 @@ SENDER_EMAIL = os.getenv("EMAIL_SENDER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 TO_EMAILS = os.getenv("EMAIL_RECEIVERS", "")
 
-# Booking configuration
-DATE = os.getenv("TARGET_DATE", "")
-TIME = os.getenv("TIME_OF_DAY", "all")
-PLAYERS = int(os.getenv("PLAYERS", "2"))
+# Global booking configuration
 BOOKING_CLASS = os.getenv("BOOKING_CLASS", "XXXXX")
 SCHEDULE_ID = os.getenv("SCHEDULE_ID", "XXXX")
 SCHEDULE_IDS = os.getenv("SCHEDULE_IDS", "XXXX,XXXX").split(",")
 
-SEEN_FILE = 'last_sent.txt'
+SEARCH_CONFIGS = os.getenv("SEARCH_CONFIGS", "[]")
+
+DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+
+
+def next_occurrence(day_name):
+    """Return the next date (including today) matching day_name, formatted MM-DD-YYYY."""
+    target = DAYS.index(day_name.lower())
+    today = datetime.now()
+    days_ahead = (target - today.weekday()) % 7
+    result = today + timedelta(days=days_ahead)
+    return result.strftime('%m-%d-%Y')
 
 
 def tee_time_key(t):
     return f"{t.get('time')}|{t.get('course_name')}|{t.get('holes')}"
 
 
-def load_seen_keys():
-    if not os.path.exists(SEEN_FILE):
+def load_seen_keys(slot_id):
+    filename = f'last_sent_{slot_id}.txt'
+    if not os.path.exists(filename):
         return set()
-    with open(SEEN_FILE, 'r') as f:
+    with open(filename, 'r') as f:
         content = f.read().strip()
         if not content:
             return set()
@@ -44,16 +53,17 @@ def load_seen_keys():
             return set()
 
 
-def save_seen_keys(keys):
-    with open(SEEN_FILE, 'w') as f:
+def save_seen_keys(keys, slot_id):
+    filename = f'last_sent_{slot_id}.txt'
+    with open(filename, 'w') as f:
         json.dump(list(keys), f)
 
 
-def send_notification(new_tee_times):
+def send_notification(new_tee_times, label):
     msg = MIMEMultipart()
     msg['From'] = SENDER_EMAIL
     msg['To'] = TO_EMAILS
-    msg['Subject'] = "⛳️ Tee Time Alert!"
+    msg['Subject'] = f"⛳️ Tee Time Alert — {label}"
 
     body = "New tee times just opened up!\n\n"
     for t in new_tee_times:
@@ -71,14 +81,23 @@ def send_notification(new_tee_times):
         print("❌ Failed to send notification:", e)
 
 
-def check_tee_times():
+def check_slot(slot):
+    slot_id = slot['id']
+    day = slot['day']
+    time = slot['time']
+    players = int(slot['players'])
+    date = next_occurrence(day)
+    label = f"{day.capitalize()} {time.capitalize()}"
+
+    print(f"\n--- Checking slot: {label} ({players} players) on {date} ---")
+
     url = "https://foreupsoftware.com/index.php/api/booking/times"
 
     params = {
-        "time": TIME,
-        "date": DATE,
+        "time": time,
+        "date": date,
         "holes": "all",
-        "players": PLAYERS,
+        "players": players,
         "booking_class": BOOKING_CLASS,
         "schedule_id": SCHEDULE_ID,
         "schedule_ids[]": SCHEDULE_IDS,
@@ -110,17 +129,17 @@ def check_tee_times():
         if response.ok:
             tee_times = response.json()
             if tee_times:
-                seen = load_seen_keys()
+                seen = load_seen_keys(slot_id)
                 new_times = [t for t in tee_times if tee_time_key(t) not in seen]
                 if new_times:
                     print(f"🎉 Found {len(new_times)} new tee times!")
-                    send_notification(new_times)
-                    save_seen_keys({tee_time_key(t) for t in tee_times})
+                    send_notification(new_times, label)
+                    save_seen_keys({tee_time_key(t) for t in tee_times}, slot_id)
                 else:
                     print(f"Found {len(tee_times)} tee times but none are new.")
             else:
                 print("No tee times available.")
-                save_seen_keys(set())
+                save_seen_keys(set(), slot_id)
         else:
             print(f"Request failed with status code {response.status_code}")
     except Exception as e:
@@ -128,7 +147,18 @@ def check_tee_times():
 
 
 def main():
-    check_tee_times()
+    try:
+        configs = json.loads(SEARCH_CONFIGS)
+    except (ValueError, TypeError):
+        print("❌ Invalid SEARCH_CONFIGS JSON.")
+        return
+
+    if not configs:
+        print("No search slots configured.")
+        return
+
+    for slot in configs:
+        check_slot(slot)
 
 
 if __name__ == "__main__":

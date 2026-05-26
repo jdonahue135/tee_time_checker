@@ -7,9 +7,7 @@ env:
   EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
   EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
   EMAIL_RECEIVERS: ${{ vars.EMAIL_RECEIVERS }}
-  TARGET_DATE: ${{ vars.TARGET_DATE }}
-  TIME_OF_DAY: ${{ vars.TIME_OF_DAY }}
-  PLAYERS: ${{ vars.PLAYERS }}
+  SEARCH_CONFIGS: ${{ vars.SEARCH_CONFIGS }}
   BOOKING_CLASS: ${{ vars.BOOKING_CLASS }}
   SCHEDULE_ID: ${{ vars.SCHEDULE_ID }}
   SCHEDULE_IDS: ${{ vars.SCHEDULE_IDS }}
@@ -33,7 +31,7 @@ jobs:
       - name: Restore seen tee times from cache
         uses: actions/cache@v3
         with:
-          path: last_sent.txt
+          path: last_sent_*.txt
           key: last-sent-${{ github.run_id }}
           restore-keys: |
             last-sent-
@@ -44,5 +42,5 @@ jobs:
       - name: Save seen tee times to cache
         uses: actions/cache/save@v3
         with:
-          path: last_sent.txt
+          path: last_sent_*.txt
           key: last-sent-${{ github.run_id }}

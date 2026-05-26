@@ -48,6 +48,13 @@
     input:checked + .slider { background: #4a7c59; }
     input:checked + .slider:before { transform: translateX(20px); }
     .toggle-label { font-size: 0.9rem; font-weight: 500; }
+    .slots-header { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; margin-bottom: 0.5rem; }
+    .slots-header label { margin: 0; }
+    .slot-row { display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.4rem; }
+    .slot-row select { flex: 1; width: auto; padding: 0.4rem 0.5rem; font-size: 0.9rem; }
+    .slot-remove { background: none; border: none; cursor: pointer; font-size: 1rem; color: #888; padding: 0.2rem 0.4rem; border-radius: 4px; flex-shrink: 0; }
+    .slot-remove:hover { background: #fdecea; color: #b71c1c; }
+    .slots-empty { font-size: 0.85rem; color: #999; margin: 0.5rem 0; }
   </style>
 </head>
 <body>
@@ -60,14 +67,11 @@
     <label for="course">Course</label>
     <select id="course"></select>
 
-    <label for="target-date">Date</label>
-    <input type="date" id="target-date" />
-
-    <label for="time-of-day">Time of Day</label>
-    <select id="time-of-day"></select>
-
-    <label for="players">Players</label>
-    <select id="players"></select>
+    <div class="slots-header">
+      <label>Search Slots</label>
+      <button class="btn btn-secondary" style="margin-left:0;padding:0.3rem 0.75rem;font-size:0.85rem;" onclick="addSlot()">+ Add Slot</button>
+    </div>
+    <div id="slot-list"></div>
 
     <details>
       <summary>Advanced</summary>
@@ -154,7 +158,10 @@
     const REPO = 'tee_time_checker';
     const WORKFLOW_FILE = 'check_tee_times.yml';
 
-    const VAR_NAMES = ['TARGET_DATE', 'TIME_OF_DAY', 'PLAYERS', 'BOOKING_CLASS', 'SCHEDULE_ID', 'SCHEDULE_IDS', 'EMAIL_RECEIVERS'];
+    const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+    let slots = [];
+    let enumsData = null;
 
     function getPAT() { return document.getElementById('pat').value.trim(); }
 
@@ -205,21 +212,80 @@
       }
     }
 
-    // Format date: input value is YYYY-MM-DD, API wants MM-DD-YYYY
-    function toApiDate(val) {
-      if (!val) return '';
-      const [y, m, d] = val.split('-');
-      return `${m}-${d}-${y}`;
-    }
-    function fromApiDate(val) {
-      if (!val) return '';
-      const [m, d, y] = val.split('-');
-      return `${y}-${m}-${d}`;
-    }
-
     async function loadEnums() {
       const res = await fetch('enums.json');
       return res.json();
+    }
+
+    // --- Slot management ---
+
+    function slotId(slot) {
+      return `${slot.day}-${slot.time}-${slot.players}`;
+    }
+
+    function addSlot(slot = null) {
+      slots.push(slot || { day: 'friday', time: 'morning', players: '0' });
+      renderSlots();
+    }
+
+    function removeSlot(i) {
+      slots.splice(i, 1);
+      renderSlots();
+    }
+
+    function renderSlots() {
+      const container = document.getElementById('slot-list');
+      if (slots.length === 0) {
+        container.innerHTML = '<p class="slots-empty">No search slots. Add one above.</p>';
+        return;
+      }
+      container.innerHTML = '';
+      slots.forEach((slot, i) => {
+        const row = document.createElement('div');
+        row.className = 'slot-row';
+
+        const daySelect = document.createElement('select');
+        for (const d of DAYS) {
+          const opt = document.createElement('option');
+          opt.value = d.toLowerCase();
+          opt.textContent = d;
+          if (opt.value === slot.day) opt.selected = true;
+          daySelect.appendChild(opt);
+        }
+        daySelect.addEventListener('change', () => { slots[i].day = daySelect.value; });
+
+        const timeSelect = document.createElement('select');
+        for (const t of (enumsData?.TIME_OF_DAY || [])) {
+          const opt = document.createElement('option');
+          opt.value = t;
+          opt.textContent = t.charAt(0).toUpperCase() + t.slice(1);
+          if (t === slot.time) opt.selected = true;
+          timeSelect.appendChild(opt);
+        }
+        timeSelect.addEventListener('change', () => { slots[i].time = timeSelect.value; });
+
+        const playersSelect = document.createElement('select');
+        for (const p of (enumsData?.PLAYERS || [])) {
+          const opt = document.createElement('option');
+          opt.value = p;
+          opt.textContent = p === '0' ? '0 (any)' : p;
+          if (p === String(slot.players)) opt.selected = true;
+          playersSelect.appendChild(opt);
+        }
+        playersSelect.addEventListener('change', () => { slots[i].players = playersSelect.value; });
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'slot-remove';
+        removeBtn.textContent = '✕';
+        removeBtn.title = 'Remove slot';
+        removeBtn.addEventListener('click', () => removeSlot(i));
+
+        row.appendChild(daySelect);
+        row.appendChild(timeSelect);
+        row.appendChild(playersSelect);
+        row.appendChild(removeBtn);
+        container.appendChild(row);
+      });
     }
 
     async function init() {
@@ -234,35 +300,18 @@
         localStorage.setItem('gh_pat', document.getElementById('pat').value.trim());
       });
 
-      const enums = await loadEnums();
+      enumsData = await loadEnums();
 
       // Populate course dropdown
       const courseEl = document.getElementById('course');
-      for (const [id, name] of Object.entries(enums.COURSES)) {
+      for (const [id, name] of Object.entries(enumsData.COURSES)) {
         const opt = document.createElement('option');
         opt.value = id;
         opt.textContent = name;
         courseEl.appendChild(opt);
       }
 
-      // Populate time dropdown
-      const timeEl = document.getElementById('time-of-day');
-      for (const t of enums.TIME_OF_DAY) {
-        const opt = document.createElement('option');
-        opt.value = t;
-        opt.textContent = t.charAt(0).toUpperCase() + t.slice(1);
-        timeEl.appendChild(opt);
-      }
-
-      // Populate players dropdown
-      const playersEl = document.getElementById('players');
-      for (const p of enums.PLAYERS) {
-        const opt = document.createElement('option');
-        opt.value = p;
-        opt.textContent = p === '0' ? '0 (any)' : p;
-        playersEl.appendChild(opt);
-      }
-
+      renderSlots();
       renderEmailTags();
       // Load current values from GH if PAT is set
       if (getPAT()) await loadCurrentValues();
@@ -274,12 +323,16 @@
     async function loadCurrentValues() {
       showStatus('Loading current settings…', 'info');
       try {
-        const [date, time, players, bookingClass, scheduleId, scheduleIds, emailReceivers] = await Promise.all(
-          VAR_NAMES.map(getVar)
+        const [searchConfigs, bookingClass, scheduleId, scheduleIds, emailReceivers] = await Promise.all(
+          ['SEARCH_CONFIGS', 'BOOKING_CLASS', 'SCHEDULE_ID', 'SCHEDULE_IDS', 'EMAIL_RECEIVERS'].map(getVar)
         );
-        if (date) document.getElementById('target-date').value = fromApiDate(date);
-        if (time) document.getElementById('time-of-day').value = time;
-        if (players) document.getElementById('players').value = players;
+        if (searchConfigs) {
+          try {
+            const parsed = JSON.parse(searchConfigs);
+            slots = parsed.map(s => ({ day: s.day, time: s.time, players: String(s.players) }));
+            renderSlots();
+          } catch {}
+        }
         if (bookingClass) document.getElementById('booking-class').value = bookingClass;
         if (scheduleId) document.getElementById('course').value = scheduleId;
         if (scheduleIds) document.getElementById('schedule-ids').value = scheduleIds;
@@ -296,18 +349,20 @@
       showStatus('Saving…', 'info');
       try {
         const courseId = document.getElementById('course').value;
-        const dateVal = toApiDate(document.getElementById('target-date').value);
-        const time = document.getElementById('time-of-day').value;
-        const players = document.getElementById('players').value;
         const bookingClass = document.getElementById('booking-class').value;
         const scheduleIds = document.getElementById('schedule-ids').value;
 
+        const searchConfigs = slots.map(s => ({
+          id: slotId(s),
+          day: s.day,
+          time: s.time,
+          players: parseInt(s.players, 10)
+        }));
+
         await Promise.all([
-          dateVal && setVar('TARGET_DATE', dateVal),
-          setVar('TIME_OF_DAY', time),
-          setVar('PLAYERS', players),
-          bookingClass && setVar('BOOKING_CLASS', bookingClass),
+          setVar('SEARCH_CONFIGS', JSON.stringify(searchConfigs)),
           setVar('SCHEDULE_ID', courseId),
+          bookingClass && setVar('BOOKING_CLASS', bookingClass),
           scheduleIds && setVar('SCHEDULE_IDS', scheduleIds),
         ].filter(Boolean));
 
@@ -349,8 +404,6 @@
     function loadEmailTags(csvValue) {
       const fromGh = new Set(csvValue.split(',').map(e => e.trim()).filter(Boolean));
       const stored = getEmailList();
-      // Emails in GH are subscribed — mark them enabled
-      // Emails only in localStorage keep their local state (disabled = temporarily removed)
       fromGh.forEach(email => {
         const existing = stored.find(e => e.email === email);
         if (existing) existing.enabled = true;
@@ -471,8 +524,6 @@
     async function loadCronJob() {
       const jobId = getCronJobId();
       if (!jobId) { showCronStatus('Enter a Job ID first', 'error'); return; }
-      const btn = document.getElementById('cron-load-btn');
-      btn.disabled = true;
       showCronStatus('Loading…', 'info');
       try {
         const res = await cronFetch(jobId);
@@ -510,7 +561,6 @@
       } catch (e) {
         showCronStatus('Error: ' + e.message, 'error');
       }
-      btn.disabled = false;
     }
 
     async function saveCronJob() {
