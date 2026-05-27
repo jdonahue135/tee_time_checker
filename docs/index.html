@@ -37,7 +37,6 @@
     .email-input-row input:invalid { border-color: #e57373; }
     .email-tags { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.5rem; }
     .email-tag { display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0.6rem; border-radius: 6px; background: #f0f0f0; font-size: 0.9rem; }
-    .email-tag.disabled { opacity: 0.45; }
     .email-tag-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
     .tag-btn { background: none; border: none; cursor: pointer; font-size: 0.8rem; padding: 0.1rem 0.3rem; border-radius: 4px; color: #555; }
     .tag-btn:hover { background: #ddd; }
@@ -55,8 +54,9 @@
     .slot-row select { flex: 1; width: auto; padding: 0.4rem 0.5rem; font-size: 0.9rem; }
     .slot-remove { background: none; border: none; cursor: pointer; font-size: 1rem; color: #888; padding: 0.2rem 0.4rem; border-radius: 4px; flex-shrink: 0; }
     .slot-remove:hover { background: #fdecea; color: #b71c1c; }
-    .slot-recipients { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.25rem; font-size: 0.8rem; color: #555; padding-left: 0.25rem; }
-    .slot-recipients .recip-label { font-weight: 500; color: #777; }
+    .slot-recip-details { margin-top: 0.25rem; }
+    .slot-recip-details > summary { cursor: pointer; font-size: 0.8rem; color: #666; padding-left: 0.1rem; }
+    .slot-recipients { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; padding: 0.4rem 0.25rem 0; font-size: 0.85rem; }
     .slot-recipients label { display: inline-flex; align-items: center; gap: 0.25rem; cursor: pointer; }
     .slots-empty { font-size: 0.85rem; color: #999; margin: 0.5rem 0; }
   </style>
@@ -245,7 +245,7 @@
         return;
       }
       container.innerHTML = '';
-      const emails = getEmailList().filter(e => e.enabled);
+      const emails = getEmailList();
       slots.forEach((slot, i) => {
         const wrapper = document.createElement('div');
         wrapper.className = 'slot-wrapper';
@@ -296,29 +296,38 @@
         wrapper.appendChild(row);
 
         if (emails.length > 0) {
+          const slotRecips = slots[i].recipients || [];
+          const summaryLabel = () => {
+            const r = slots[i].recipients || [];
+            return r.length === 0 || r.length === emails.length
+              ? 'Configure recipients (All)'
+              : `Configure recipients (${r.length} of ${emails.length})`;
+          };
+          const details = document.createElement('details');
+          details.className = 'slot-recip-details';
+          const summary = document.createElement('summary');
+          summary.textContent = summaryLabel();
+          details.appendChild(summary);
           const recipRow = document.createElement('div');
           recipRow.className = 'slot-recipients';
-          const lbl = document.createElement('span');
-          lbl.className = 'recip-label';
-          lbl.textContent = 'Notify:';
-          recipRow.appendChild(lbl);
-          emails.forEach((entry, j) => {
+          emails.forEach((entry) => {
             const cbLabel = document.createElement('label');
             const cb = document.createElement('input');
             cb.type = 'checkbox';
-            const slotRecips = slots[i].recipients || [];
             cb.checked = slotRecips.length === 0 || slotRecips.includes(entry.email);
             cb.addEventListener('change', () => {
-              const allEmails = getEmailList().filter(e => e.enabled).map(e => e.email);
+              const allEmails = getEmailList().map(e => e.email);
               const checkboxes = recipRow.querySelectorAll('input[type=checkbox]');
               const checked = allEmails.filter((_, k) => checkboxes[k].checked);
               slots[i].recipients = checked.length === allEmails.length ? [] : checked;
+              summary.textContent = summaryLabel();
             });
             cbLabel.appendChild(cb);
             cbLabel.appendChild(document.createTextNode(' ' + entry.email));
             recipRow.appendChild(cbLabel);
           });
-          wrapper.appendChild(recipRow);
+          details.appendChild(recipRow);
+          wrapper.appendChild(details);
         }
 
         container.appendChild(wrapper);
@@ -393,7 +402,7 @@
           players: parseInt(s.players, 10),
           recipients: s.recipients || []
         }));
-        currentConfig.emailReceivers = getEmailList().filter(e => e.enabled).map(e => e.email).join(',');
+        currentConfig.emailReceivers = getEmailList().map(e => e.email).join(',');
         await setVar('CONFIG', JSON.stringify(currentConfig));
         showStatus('Settings saved', 'success');
       } catch (e) {
@@ -418,11 +427,10 @@
       container.innerHTML = '';
       list.forEach((entry, i) => {
         const tag = document.createElement('div');
-        tag.className = 'email-tag' + (entry.enabled ? '' : ' disabled');
+        tag.className = 'email-tag';
         tag.innerHTML = `
           <span>${entry.email}</span>
           <span class="email-tag-actions">
-            <button class="tag-btn" title="${entry.enabled ? 'Disable' : 'Enable'}" onclick="toggleEmail(${i})">${entry.enabled ? 'Disable' : 'Enable'}</button>
             <button class="tag-btn" title="Remove" onclick="removeEmail(${i})">✕</button>
           </span>
         `;
@@ -435,9 +443,7 @@
       const fromGh = new Set(csvValue.split(',').map(e => e.trim()).filter(Boolean));
       const stored = getEmailList();
       fromGh.forEach(email => {
-        const existing = stored.find(e => e.email === email);
-        if (existing) existing.enabled = true;
-        else stored.push({ email, enabled: true });
+        if (!stored.find(e => e.email === email)) stored.push({ email });
       });
       saveEmailList(stored);
       renderEmailTags();
@@ -450,17 +456,10 @@
       input.setCustomValidity('');
       const list = getEmailList();
       if (list.some(e => e.email === val)) { input.value = ''; return; }
-      list.push({ email: val, enabled: true });
+      list.push({ email: val });
       saveEmailList(list);
       renderEmailTags();
       input.value = '';
-    }
-
-    function toggleEmail(i) {
-      const list = getEmailList();
-      list[i].enabled = !list[i].enabled;
-      saveEmailList(list);
-      renderEmailTags();
     }
 
     function removeEmail(i) {
@@ -483,7 +482,7 @@
       btn.disabled = true;
       showRecipientsStatus('Saving…', 'info');
       try {
-        currentConfig.emailReceivers = getEmailList().filter(e => e.enabled).map(e => e.email).join(',');
+        currentConfig.emailReceivers = getEmailList().map(e => e.email).join(',');
         await setVar('CONFIG', JSON.stringify(currentConfig));
         showRecipientsStatus('Saved', 'success');
       } catch (e) {
