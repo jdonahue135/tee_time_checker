@@ -69,10 +69,10 @@ def fmt_time(raw):
             pass
     return raw
 
-def send_notification(new_tee_times, label):
+def send_notification(new_tee_times, label, to_emails):
     msg = MIMEMultipart()
     msg['From'] = SENDER_EMAIL
-    msg['To'] = TO_EMAILS
+    msg['To'] = to_emails
     msg['Subject'] = f"⛳️ Tee Time Alert — {label}"
 
     body = "New tee times just opened up!\n\n"
@@ -143,7 +143,12 @@ def check_slot(slot):
                 new_times = [t for t in tee_times if tee_time_key(t) not in seen]
                 if new_times:
                     print(f"🎉 Found {len(new_times)} new tee times!")
-                    send_notification(new_times, label)
+                    slot_recips = slot.get('recipients', [])
+                    to_emails = ','.join(slot_recips) if slot_recips else TO_EMAILS
+                    if not to_emails:
+                        print("No recipients configured, skipping notification.")
+                    else:
+                        send_notification(new_times, label, to_emails)
                     save_seen_keys({tee_time_key(t) for t in tee_times}, slot_id)
                 else:
                     print(f"Found {len(tee_times)} tee times but none are new.")
