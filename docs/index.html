@@ -50,10 +50,14 @@
     .toggle-label { font-size: 0.9rem; font-weight: 500; }
     .slots-header { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; margin-bottom: 0.5rem; }
     .slots-header label { margin: 0; }
-    .slot-row { display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.4rem; }
+    .slot-wrapper { margin-bottom: 0.6rem; }
+    .slot-row { display: flex; gap: 0.4rem; align-items: center; }
     .slot-row select { flex: 1; width: auto; padding: 0.4rem 0.5rem; font-size: 0.9rem; }
     .slot-remove { background: none; border: none; cursor: pointer; font-size: 1rem; color: #888; padding: 0.2rem 0.4rem; border-radius: 4px; flex-shrink: 0; }
     .slot-remove:hover { background: #fdecea; color: #b71c1c; }
+    .slot-recipients { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.25rem; font-size: 0.8rem; color: #555; padding-left: 0.25rem; }
+    .slot-recipients .recip-label { font-weight: 500; color: #777; }
+    .slot-recipients label { display: inline-flex; align-items: center; gap: 0.25rem; cursor: pointer; }
     .slots-empty { font-size: 0.85rem; color: #999; margin: 0.5rem 0; }
   </style>
 </head>
@@ -225,7 +229,7 @@
     }
 
     function addSlot(slot = null) {
-      slots.push(slot || { day: 'friday', time: 'morning', players: '0' });
+      slots.push(slot || { day: 'friday', time: 'morning', players: '0', recipients: [] });
       renderSlots();
     }
 
@@ -241,7 +245,11 @@
         return;
       }
       container.innerHTML = '';
+      const emails = getEmailList().filter(e => e.enabled);
       slots.forEach((slot, i) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'slot-wrapper';
+
         const row = document.createElement('div');
         row.className = 'slot-row';
 
@@ -285,7 +293,35 @@
         row.appendChild(timeSelect);
         row.appendChild(playersSelect);
         row.appendChild(removeBtn);
-        container.appendChild(row);
+        wrapper.appendChild(row);
+
+        if (emails.length > 0) {
+          const recipRow = document.createElement('div');
+          recipRow.className = 'slot-recipients';
+          const lbl = document.createElement('span');
+          lbl.className = 'recip-label';
+          lbl.textContent = 'Notify:';
+          recipRow.appendChild(lbl);
+          emails.forEach((entry, j) => {
+            const cbLabel = document.createElement('label');
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            const slotRecips = slots[i].recipients || [];
+            cb.checked = slotRecips.length === 0 || slotRecips.includes(entry.email);
+            cb.addEventListener('change', () => {
+              const allEmails = getEmailList().filter(e => e.enabled).map(e => e.email);
+              const checkboxes = recipRow.querySelectorAll('input[type=checkbox]');
+              const checked = allEmails.filter((_, k) => checkboxes[k].checked);
+              slots[i].recipients = checked.length === allEmails.length ? [] : checked;
+            });
+            cbLabel.appendChild(cb);
+            cbLabel.appendChild(document.createTextNode(' ' + entry.email));
+            recipRow.appendChild(cbLabel);
+          });
+          wrapper.appendChild(recipRow);
+        }
+
+        container.appendChild(wrapper);
       });
     }
 
@@ -332,7 +368,7 @@
         if (currentConfig.scheduleId) document.getElementById('course').value = currentConfig.scheduleId;
         if (currentConfig.scheduleIds) document.getElementById('schedule-ids').value = currentConfig.scheduleIds;
         if (currentConfig.slots?.length) {
-          slots = currentConfig.slots.map(s => ({ day: s.day, time: s.time, players: String(s.players) }));
+          slots = currentConfig.slots.map(s => ({ day: s.day, time: s.time, players: String(s.players), recipients: s.recipients || [] }));
           renderSlots();
         }
         if (currentConfig.emailReceivers) loadEmailTags(currentConfig.emailReceivers);
@@ -354,7 +390,8 @@
           id: slotId(s),
           day: s.day,
           time: s.time,
-          players: parseInt(s.players, 10)
+          players: parseInt(s.players, 10),
+          recipients: s.recipients || []
         }));
         currentConfig.emailReceivers = getEmailList().filter(e => e.enabled).map(e => e.email).join(',');
         await setVar('CONFIG', JSON.stringify(currentConfig));
@@ -391,6 +428,7 @@
         `;
         container.appendChild(tag);
       });
+      renderSlots();
     }
 
     function loadEmailTags(csvValue) {
