@@ -62,18 +62,18 @@ def save_seen_keys(keys, slot_id):
 
 
 def fmt_time(raw):
-    for fmt in ('%H:%M:%S', '%H:%M'):
+    for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%H:%M:%S', '%H:%M'):
         try:
-            return datetime.strptime(raw, fmt).strftime('%-I:%M %p')
+            return datetime.strptime(raw, fmt).strftime('%I:%M %p').lstrip('0')
         except (ValueError, TypeError):
             pass
     return raw
 
-def send_notification(new_tee_times, label, to_emails):
+def send_notification(new_tee_times, label, date, to_emails):
     msg = MIMEMultipart()
     msg['From'] = SENDER_EMAIL
     msg['To'] = to_emails
-    msg['Subject'] = f"⛳️ Tee Time Alert — {label}"
+    msg['Subject'] = f"⛳️ Tee Time Alert — {label} ({date})"
 
     body = "New tee times just opened up!\n\n"
     for t in new_tee_times:
@@ -148,7 +148,7 @@ def check_slot(slot):
                     if not to_emails:
                         print("No recipients configured, skipping notification.")
                     else:
-                        send_notification(new_times, label, to_emails)
+                        send_notification(new_times, label, date, to_emails)
                     save_seen_keys({tee_time_key(t) for t in tee_times}, slot_id)
                 else:
                     print(f"Found {len(tee_times)} tee times but none are new.")
