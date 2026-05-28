@@ -62,7 +62,7 @@ def save_seen_keys(keys, slot_id):
 
 
 def fmt_time(raw):
-    for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%H:%M:%S', '%H:%M'):
+    for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%dT%H:%M', '%H:%M:%S', '%H:%M'):
         try:
             return datetime.strptime(raw, fmt).strftime('%I:%M %p').lstrip('0')
         except (ValueError, TypeError):
