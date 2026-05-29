@@ -2,6 +2,21 @@
   "TIME_OF_DAY": ["all", "morning", "midday", "evening"],
   "PLAYERS": ["0", "1", "2", "3", "4"],
   "COURSES": {
-    "6992": "Smith"
+    "smith": {
+      "name": "Smith",
+      "courseId": "21120",
+      "bookingClass": "8436",
+      "scheduleId": "6992",
+      "scheduleIds": "6991,6992",
+      "requiresAuth": false
+    },
+    "tashua": {
+      "name": "Tashua",
+      "courseId": "21017",
+      "bookingClass": "14910",
+      "scheduleId": "6654",
+      "scheduleIds": "6463,6654",
+      "requiresAuth": true
+    }
   }
 }
