@@ -6,6 +6,8 @@ on:
 env:
   EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
   EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+  FOREUP_EMAIL: ${{ secrets.FOREUP_EMAIL }}
+  FOREUP_PASSWORD: ${{ secrets.FOREUP_PASSWORD }}
   CONFIG: ${{ vars.CONFIG }}
 jobs:
   run-script:
@@ -27,7 +29,9 @@ jobs:
       - name: Restore seen tee times from cache
         uses: actions/cache@v3
         with:
-          path: last_sent_*.txt
+          path: |
+            last_sent_*.txt
+            foreup_jwt.json
           key: last-sent-${{ github.run_id }}
           restore-keys: |
             last-sent-
@@ -38,5 +42,7 @@ jobs:
       - name: Save seen tee times to cache
         uses: actions/cache/save@v3
         with:
-          path: last_sent_*.txt
+          path: |
+            last_sent_*.txt
+            foreup_jwt.json
           key: last-sent-${{ github.run_id }}
