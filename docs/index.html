@@ -74,16 +74,6 @@
     </div>
     <div id="slot-list"></div>
 
-    <details>
-      <summary>Advanced</summary>
-      <div class="advanced">
-        <label for="booking-class">Booking Class ID</label>
-        <input type="text" id="booking-class" />
-        <label for="schedule-ids">Schedule IDs (comma-separated)</label>
-        <input type="text" id="schedule-ids" />
-      </div>
-    </details>
-
     <div class="actions">
       <button class="btn btn-primary" id="save-btn" onclick="saveAll()">Save Settings</button>
       <button class="btn btn-secondary" id="run-btn" onclick="runWorkflow()">Run Check Now</button>
@@ -373,8 +363,6 @@
         if (raw) {
           try { currentConfig = { ...currentConfig, ...JSON.parse(raw) }; } catch {}
         }
-        if (currentConfig.bookingClass) document.getElementById('booking-class').value = currentConfig.bookingClass;
-        if (currentConfig.scheduleIds) document.getElementById('schedule-ids').value = currentConfig.scheduleIds;
         if (currentConfig.slots?.length) {
           slots = currentConfig.slots.map(s => {
             const courseKey = Object.entries(enumsData?.COURSES || {}).find(([, c]) => c.courseId === s.courseId)?.[0]
@@ -395,8 +383,6 @@
       btn.disabled = true;
       showStatus('Saving…', 'info');
       try {
-        currentConfig.bookingClass = document.getElementById('booking-class').value;
-        currentConfig.scheduleIds = document.getElementById('schedule-ids').value;
         currentConfig.slots = slots.map(s => {
           const courseConfig = enumsData?.COURSES?.[s.course] || {};
           return {
