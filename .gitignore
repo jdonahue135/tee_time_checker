@@ -2,3 +2,4 @@
 .env
 launchd_stderr.log
 launchd_stdout.log
+foreup_jwt.json
