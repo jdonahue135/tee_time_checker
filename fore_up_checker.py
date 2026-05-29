@@ -133,7 +133,9 @@ def send_notification(new_tee_times, label, date, to_emails, booking_url, course
 
     body = "New tee times just opened up!\n\n"
     for t in new_tee_times:
-        body += f"Available Spots: {t.get('available_spots')}, Time: {fmt_time(t.get('time'))}, Holes: {t.get('holes')}, Course: {t.get('course_name')}\n"
+        spots = t.get('available_spots')
+        spot_label = f"{spots} spot{'s' if spots != 1 else ''}"
+        body += f"{fmt_time(t.get('time'))}  |  {t.get('holes')} holes  |  {spot_label}\n"
     body += f"\nBook here: {booking_url}"
 
     msg.attach(MIMEText(body, 'plain'))
