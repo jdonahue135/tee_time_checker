@@ -68,9 +68,6 @@
   <div class="card">
     <h2>Search Settings</h2>
 
-    <label for="course">Course</label>
-    <select id="course"></select>
-
     <div class="slots-header">
       <label>Search Slots</label>
       <button class="btn btn-secondary" style="margin-left:0;padding:0.3rem 0.75rem;font-size:0.85rem;" onclick="addSlot()">+ Add Slot</button>
@@ -229,7 +226,8 @@
     }
 
     function addSlot(slot = null) {
-      slots.push(slot || { day: 'friday', time: 'morning', players: '0', recipients: [] });
+      const defaultCourse = Object.keys(enumsData?.COURSES || {})[0] || '';
+      slots.push(slot || { course: defaultCourse, day: 'friday', time: 'morning', players: '0', recipients: [] });
       renderSlots();
     }
 
@@ -252,6 +250,16 @@
 
         const row = document.createElement('div');
         row.className = 'slot-row';
+
+        const courseSelect = document.createElement('select');
+        for (const [key, course] of Object.entries(enumsData?.COURSES || {})) {
+          const opt = document.createElement('option');
+          opt.value = key;
+          opt.textContent = course.name;
+          if (key === slot.course) opt.selected = true;
+          courseSelect.appendChild(opt);
+        }
+        courseSelect.addEventListener('change', () => { slots[i].course = courseSelect.value; });
 
         const daySelect = document.createElement('select');
         for (const d of DAYS) {
@@ -289,6 +297,7 @@
         removeBtn.title = 'Remove slot';
         removeBtn.addEventListener('click', () => removeSlot(i));
 
+        row.appendChild(courseSelect);
         row.appendChild(daySelect);
         row.appendChild(timeSelect);
         row.appendChild(playersSelect);
@@ -348,15 +357,6 @@
 
       enumsData = await loadEnums();
 
-      // Populate course dropdown
-      const courseEl = document.getElementById('course');
-      for (const [id, name] of Object.entries(enumsData.COURSES)) {
-        const opt = document.createElement('option');
-        opt.value = id;
-        opt.textContent = name;
-        courseEl.appendChild(opt);
-      }
-
       renderSlots();
       renderEmailTags();
       // Load current values from GH if PAT is set
@@ -374,10 +374,13 @@
           try { currentConfig = { ...currentConfig, ...JSON.parse(raw) }; } catch {}
         }
         if (currentConfig.bookingClass) document.getElementById('booking-class').value = currentConfig.bookingClass;
-        if (currentConfig.scheduleId) document.getElementById('course').value = currentConfig.scheduleId;
         if (currentConfig.scheduleIds) document.getElementById('schedule-ids').value = currentConfig.scheduleIds;
         if (currentConfig.slots?.length) {
-          slots = currentConfig.slots.map(s => ({ day: s.day, time: s.time, players: String(s.players), recipients: s.recipients || [] }));
+          slots = currentConfig.slots.map(s => {
+            const courseKey = Object.entries(enumsData?.COURSES || {}).find(([, c]) => c.courseId === s.courseId)?.[0]
+              || Object.keys(enumsData?.COURSES || {})[0] || '';
+            return { course: courseKey, day: s.day, time: s.time, players: String(s.players), recipients: s.recipients || [] };
+          });
           renderSlots();
         }
         if (currentConfig.emailReceivers) loadEmailTags(currentConfig.emailReceivers);
@@ -392,16 +395,24 @@
       btn.disabled = true;
       showStatus('Saving…', 'info');
       try {
-        currentConfig.scheduleId = document.getElementById('course').value;
         currentConfig.bookingClass = document.getElementById('booking-class').value;
         currentConfig.scheduleIds = document.getElementById('schedule-ids').value;
-        currentConfig.slots = slots.map(s => ({
-          id: slotId(s),
-          day: s.day,
-          time: s.time,
-          players: parseInt(s.players, 10),
-          recipients: s.recipients || []
-        }));
+        currentConfig.slots = slots.map(s => {
+          const courseConfig = enumsData?.COURSES?.[s.course] || {};
+          return {
+            id: slotId(s),
+            day: s.day,
+            time: s.time,
+            players: parseInt(s.players, 10),
+            recipients: s.recipients || [],
+            courseId: courseConfig.courseId || '',
+            courseName: courseConfig.name || '',
+            bookingClass: courseConfig.bookingClass || '',
+            scheduleId: courseConfig.scheduleId || '',
+            scheduleIds: courseConfig.scheduleIds || '',
+            requiresAuth: courseConfig.requiresAuth || false
+          };
+        });
         currentConfig.emailReceivers = getEmailList().map(e => e.email).join(',');
         await setVar('CONFIG', JSON.stringify(currentConfig));
         showStatus('Settings saved', 'success');
