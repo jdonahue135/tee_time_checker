@@ -161,6 +161,7 @@ def check_slot(slot):
     schedule_id = slot.get('scheduleId', SCHEDULE_ID)
     schedule_ids = slot.get('scheduleIds', ','.join(SCHEDULE_IDS)).split(',')
     course_id = slot.get('courseId', '21120')
+    cache_key = f"{course_id}-{slot_id}" if course_id else slot_id
     course_name = slot.get('courseName', '')
     requires_auth = slot.get('requiresAuth', False)
 
@@ -212,7 +213,7 @@ def check_slot(slot):
         if response.ok:
             tee_times = response.json()
             if tee_times:
-                seen = load_seen_keys(slot_id)
+                seen = load_seen_keys(cache_key)
                 new_times = [t for t in tee_times if tee_time_key(t) not in seen]
                 if new_times:
                     print(f"🎉 Found {len(new_times)} new tee times!")
@@ -222,12 +223,12 @@ def check_slot(slot):
                         print("No recipients configured, skipping notification.")
                     else:
                         send_notification(new_times, label, date, to_emails, booking_url, course_name)
-                    save_seen_keys({tee_time_key(t) for t in tee_times}, slot_id)
+                    save_seen_keys({tee_time_key(t) for t in tee_times}, cache_key)
                 else:
                     print(f"Found {len(tee_times)} tee times but none are new.")
             else:
                 print("No tee times available.")
-                save_seen_keys(set(), slot_id)
+                save_seen_keys(set(), cache_key)
         else:
             print(f"Request failed with status code {response.status_code}")
     except Exception as e:
