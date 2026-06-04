@@ -83,13 +83,20 @@ def login(course_id):
     return token
 
 
-def next_occurrence(day_name):
-    """Return the next date (including today) matching day_name, formatted MM-DD-YYYY."""
+def dates_to_check(day_name):
+    """Return dates to check for a given day name.
+
+    If today is the matching day, returns both today and 7 days out so that
+    courses releasing tee times a week in advance are also captured.
+    """
     target = DAYS.index(day_name.lower())
     today = datetime.now()
     days_ahead = (target - today.weekday()) % 7
-    result = today + timedelta(days=days_ahead)
-    return result.strftime('%m-%d-%Y')
+    this_date = today + timedelta(days=days_ahead)
+    dates = [this_date]
+    if days_ahead == 0:
+        dates.append(this_date + timedelta(days=7))
+    return [d.strftime('%m-%d-%Y') for d in dates]
 
 
 def tee_time_key(t):
@@ -154,32 +161,16 @@ def check_slot(slot):
     day = slot['day']
     time = slot['time']
     players = int(slot['players'])
-    date = next_occurrence(day)
     label = f"{day.capitalize()} {time.capitalize()}"
 
     booking_class = slot.get('bookingClass', BOOKING_CLASS)
     schedule_id = slot.get('scheduleId', SCHEDULE_ID)
     schedule_ids = slot.get('scheduleIds', ','.join(SCHEDULE_IDS)).split(',')
     course_id = slot.get('courseId', 'XXXXX')
-    cache_key = f"{course_id}-{slot_id}" if course_id else slot_id
     course_name = slot.get('courseName', '')
     requires_auth = slot.get('requiresAuth', False)
 
     booking_url = f"https://foreupsoftware.com/index.php/booking/{course_id}/{schedule_id}#/teetimes"
-
-    print(f"\n--- Checking slot: {label} ({players} players) on {date} ---")
-
-    params = {
-        "time": time,
-        "date": date,
-        "holes": "all",
-        "players": players,
-        "booking_class": booking_class,
-        "schedule_id": schedule_id,
-        "schedule_ids[]": schedule_ids,
-        "specials_only": 0,
-        "api_key": "",
-    }
 
     headers = {
         "accept": "application/json, text/javascript, */*; q=0.01",
@@ -206,33 +197,50 @@ def check_slot(slot):
             print(f"Login failed: {e}")
             return
 
-    try:
-        response = requests.get("https://foreupsoftware.com/index.php/api/booking/times", headers=headers, params=params)
-        print(f"Checked at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    for date in dates_to_check(day):
+        cache_key = f"{course_id}-{slot_id}-{date}"
+        course_label = f" [{course_name}]" if course_name else ""
+        print(f"\n--- Checking slot: {label} ({players} players) on {date}{course_label} ---")
 
-        if response.ok:
-            tee_times = response.json()
-            if tee_times:
-                seen = load_seen_keys(cache_key)
-                new_times = [t for t in tee_times if tee_time_key(t) not in seen]
-                if new_times:
-                    print(f"🎉 Found {len(new_times)} new tee times!")
-                    slot_recips = slot.get('recipients', [])
-                    to_emails = ','.join(slot_recips) if slot_recips else TO_EMAILS
-                    if not to_emails:
-                        print("No recipients configured, skipping notification.")
+        params = {
+            "time": time,
+            "date": date,
+            "holes": "all",
+            "players": players,
+            "booking_class": booking_class,
+            "schedule_id": schedule_id,
+            "schedule_ids[]": schedule_ids,
+            "specials_only": 0,
+            "api_key": "",
+        }
+
+        try:
+            response = requests.get("https://foreupsoftware.com/index.php/api/booking/times", headers=headers, params=params)
+            print(f"Checked at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+            if response.ok:
+                tee_times = response.json()
+                if tee_times:
+                    seen = load_seen_keys(cache_key)
+                    new_times = [t for t in tee_times if tee_time_key(t) not in seen]
+                    if new_times:
+                        print(f"🎉 Found {len(new_times)} new tee times!")
+                        slot_recips = slot.get('recipients', [])
+                        to_emails = ','.join(slot_recips) if slot_recips else TO_EMAILS
+                        if not to_emails:
+                            print("No recipients configured, skipping notification.")
+                        else:
+                            send_notification(new_times, label, date, to_emails, booking_url, course_name)
+                        save_seen_keys({tee_time_key(t) for t in tee_times}, cache_key)
                     else:
-                        send_notification(new_times, label, date, to_emails, booking_url, course_name)
-                    save_seen_keys({tee_time_key(t) for t in tee_times}, cache_key)
+                        print(f"Found {len(tee_times)} tee times but none are new.")
                 else:
-                    print(f"Found {len(tee_times)} tee times but none are new.")
+                    print("No tee times available.")
+                    save_seen_keys(set(), cache_key)
             else:
-                print("No tee times available.")
-                save_seen_keys(set(), cache_key)
-        else:
-            print(f"Request failed with status code {response.status_code}")
-    except Exception as e:
-        print("Error checking tee times:", e)
+                print(f"Request failed with status code {response.status_code}")
+        except Exception as e:
+            print("Error checking tee times:", e)
 
 
 def main():
