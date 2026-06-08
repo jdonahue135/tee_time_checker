@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 SENDER_EMAIL = os.getenv("EMAIL_SENDER")
-EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+BREVO_SMTP_KEY = os.getenv("BREVO_SMTP_KEY")
 FOREUP_EMAIL = os.getenv("FOREUP_EMAIL")
 FOREUP_PASSWORD = os.getenv("FOREUP_PASSWORD")
 
@@ -148,8 +148,9 @@ def send_notification(new_tee_times, label, date, to_emails, booking_url, course
     msg.attach(MIMEText(body, 'plain'))
 
     try:
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
-            server.login(SENDER_EMAIL, EMAIL_PASSWORD)
+        with smtplib.SMTP('smtp-relay.brevo.com', 587) as server:
+            server.starttls()
+            server.login(SENDER_EMAIL, BREVO_SMTP_KEY)
             server.send_message(msg)
         print("✅ Notification sent.")
     except Exception as e:
