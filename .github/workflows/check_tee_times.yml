@@ -5,6 +5,7 @@ on:
 
 env:
   EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+  BREVO_LOGIN: ${{ secrets.BREVO_LOGIN }}
   BREVO_SMTP_KEY: ${{ secrets.BREVO_SMTP_KEY }}
   FOREUP_EMAIL: ${{ secrets.FOREUP_EMAIL }}
   FOREUP_PASSWORD: ${{ secrets.FOREUP_PASSWORD }}
